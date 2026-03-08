@@ -143,6 +143,50 @@ const HTML = `<!DOCTYPE html>
     button.clear:hover { background: #3d4a5a; }
     button.wide { grid-column: span 2; }
     .error { color: #fc8181 !important; font-size: 20px !important; }
+
+    .history {
+      margin-top: 20px;
+      background: #0f3460;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      color: #a0aec0;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .history-header button {
+      background: none;
+      color: #a0aec0;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid #2d3748;
+    }
+    .history-header button:hover { background: #1a4a80; color: #e2e8f0; }
+    .history-list {
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    .history-list::-webkit-scrollbar { width: 4px; }
+    .history-list::-webkit-scrollbar-track { background: transparent; }
+    .history-list::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 2px; }
+    .history-item {
+      padding: 8px 16px;
+      cursor: pointer;
+      border-top: 1px solid #1a2a4a;
+      transition: background 0.1s;
+      text-align: right;
+    }
+    .history-item:hover { background: #1a4a80; }
+    .history-item .hist-expr { color: #a0aec0; font-size: 12px; }
+    .history-item .hist-result { color: #e2e8f0; font-size: 18px; }
+    .history-empty { padding: 16px; text-align: center; color: #4a5568; font-size: 13px; }
   </style>
 </head>
 <body>
@@ -176,10 +220,58 @@ const HTML = `<!DOCTYPE html>
     <button onclick="append('.')">.</button>
     <button class="equals" onclick="calculate()">=</button>
   </div>
+  <div class="history">
+    <div class="history-header">
+      <span>History</span>
+      <button onclick="clearHistory()">Clear</button>
+    </div>
+    <div class="history-list" id="historyList">
+      <div class="history-empty" id="historyEmpty">No calculations yet</div>
+    </div>
+  </div>
 </div>
 <script>
   let expression = '';
   let justCalculated = false;
+  let history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
+
+  function saveHistory() {
+    localStorage.setItem('calcHistory', JSON.stringify(history));
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('historyList');
+    const empty = document.getElementById('historyEmpty');
+    // Remove old items (keep the empty placeholder)
+    [...list.querySelectorAll('.history-item')].forEach(el => el.remove());
+    if (history.length === 0) {
+      empty.style.display = '';
+      return;
+    }
+    empty.style.display = 'none';
+    // Newest first
+    [...history].reverse().forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.innerHTML = \`<div class="hist-expr">\${item.expr} =</div><div class="hist-result">\${item.result}</div>\`;
+      div.onclick = () => {
+        expression = item.result;
+        justCalculated = true;
+        updateDisplay();
+        document.getElementById('result').textContent = item.result;
+        document.getElementById('result').className = 'result';
+      };
+      list.appendChild(div);
+    });
+  }
+
+  function clearHistory() {
+    history = [];
+    saveHistory();
+    renderHistory();
+  }
+
+  renderHistory();
 
   function updateDisplay() {
     document.getElementById('expression').textContent = expression;
@@ -229,6 +321,9 @@ const HTML = `<!DOCTYPE html>
         justCalculated = false;
       } else {
         el.className = 'result';
+        history.push({ expr, result: text });
+        saveHistory();
+        renderHistory();
         expression = text;
         justCalculated = true;
       }
